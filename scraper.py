@@ -14,7 +14,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumbase import Driver
-from datetime import date
+from datetime import datetime, date, timedelta
 
 options = webdriver.ChromeOptions()
 
@@ -49,8 +49,6 @@ def sleeper():
         time.sleep(float("0." + random.choice(timers[0:3]) + random.choice(timers[0:4]) + random.choice(timers[0:9])))
 
 def logging_in():
-        driver.get(variables[0])
-
         try:
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, variables[1])))
                 fieldForm = driver.find_element("xpath", variables[1])
@@ -74,13 +72,13 @@ def logging_in():
                 button = driver.find_element("xpath", variables[3])
                 button.click()
 
-logging_in()
+driver.get(variables[0])
+if len(username) != 0 and len(password) != 0:
+    logging_in()
 end = time.time()
 input("Press Enter to continue...")
 
 url = 'https://www.tiktok.com/search/video?q=fashion&t=1699558711587'
-
-#url = 'https://www.tiktok.com/en/'
 
 driver.get(url)
 
@@ -100,9 +98,12 @@ for tag in content.find_all('div', attrs={"class": 'tiktok-1lbowdj-DivPlayIcon e
     postViewCounts.append(tag.text)
 
 date_pattern = re.compile(r'\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}|\d+d ago')
+days_ago_pattern = re.compile(r'\d+d ago')
 objectList = []
-for i in range(5):
+print(len(postArray))
+for i in range(len(postArray)):
     post = postArray[i]
+    print(post)
     driver.get(post)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(2)
@@ -129,24 +130,34 @@ for i in range(5):
         for component in tag:
             text = component.text.split(' · ')[-1]
             if len(text) != 0 and text != "Follow":
-                nums = text.split('-')
-                if len(nums) == 2:
-                    date_posted = "{m}/{d}/2023".format(m=nums[0], d=nums[1])
+                print(text)
+                if bool(days_ago_pattern.match(text)):
+                    days_to_subtract = int(text.split('d')[0])
+                    date_posted = datetime.now() - timedelta(days=days_to_subtract)
+                    date_posted = date_posted.strftime("%m/%d/%Y")
                 else:
-                    date_posted = "{m}/{d}/{y}".format(m=nums[1], d=nums[2], y=nums[0])
-    postObject = {
-        'Post URL': post,
-        'Account': content.find('span', attrs={"class": 'tiktok-1c7urt-SpanUniqueId evv7pft1'}).text,
-        'Views': postViewCounts[i],
-        'Likes': content.find('strong', attrs={"data-e2e": 'like-count'}).text,
-        'Comments': comments,
-        'Saved': content.find('strong', attrs={"data-e2e": 'undefined-count'}).text,
-        'Caption': caption,
-        'Hashtags': hashtags,
-        'Date Posted': date_posted,
-        'Date Collected': (date.today()).strftime("%m/%d/%y")
-    }
-    objectList.append(postObject)
+                    nums = text.split('-')
+                    if len(nums) == 2:
+                        date_posted = "{m}/{d}/2023".format(m=nums[0], d=nums[1])
+                    else:
+                        date_posted = "{m}/{d}/{y}".format(m=nums[1], d=nums[2], y=nums[0])
+    account = content.find('span', attrs={"class": 'tiktok-1c7urt-SpanUniqueId evv7pft1'}).text
+    like_count = content.find('strong', attrs={"data-e2e": 'like-count'})
+    saved_count = content.find('strong', attrs={"data-e2e": 'undefined-count'})
+    if like_count and saved_count:
+        postObject = {
+            'Post URL': post,
+            'Account': account,
+            'Views': postViewCounts[i],
+            'Likes': like_count.text,
+            'Comments': comments,
+            'Saved': saved_count.text,
+            'Caption': caption,
+            'Hashtags': hashtags,
+            'Date Posted': date_posted,
+            'Date Collected': (date.today()).strftime("%m/%d/%y")
+        }
+        objectList.append(postObject)
 
 driver.quit()
 
